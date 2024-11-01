@@ -1,6 +1,8 @@
 #include <windows.h>
 #include <math.h>
 #include <cstdint>
+#include <stdio.h>
+#include <stdlib.h>
 #include <gl/GL.h>
 
 static HGLRC hRC; // Rendering Context
@@ -10,7 +12,6 @@ static HWND hWnd; // Window Handle
 static UINT32 shaderProgram;
 static INT32 timeLocation;
 static FLOAT time = 0.0f;
-
 
 typedef uint32_t (*GLCreateProgramFunc)();
 GLCreateProgramFunc glCreateProgram = NULL;
@@ -41,6 +42,9 @@ GLUniform1fFunc glUniform1f = NULL;
 #define GL_QUADS 0x0007
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+char* vertexShaderSource = NULL;
+char* fragmentShaderSource = NULL;
 
 void InitOpenGL(HWND hwnd) {
 
@@ -86,30 +90,22 @@ void InitOpenGL(HWND hwnd) {
     // Shader setup
     shaderProgram = glCreateProgram();
 
-    const char* vertexShaderSource =
-        "#version 120\n"
-        "void main() {\n"
-        "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
-        "}\n";
-
-    const char* fragmentShaderSource =
-        "#version 120\n"
-        "uniform float time;\n"
-        "void main() {\n"
-        "    float red = abs(sin(time));\n"
-        "    float green = abs(cos(time));\n"
-        "    gl_FragColor = vec4(red, green, 0.0, 1.0);\n"
-        "}\n";
-
     UINT32 vertexShader = glCreateShader(GL_VERTEX_SHADER);
     UINT32 fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glShaderSource(vertexShader, 1, (const char **)&vertexShaderSource, NULL);
     glCompileShader(vertexShader);
+    if(glGetError() != 0) {
+        printf("Failed to compile vertex shader\n");
+        exit(1);
+    }
     glAttachShader(shaderProgram, vertexShader);
-
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glShaderSource(fragmentShader, 1, (const char**)&fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
+    if(glGetError() != 0) {
+        printf("Failed to compile fragment shader\n");
+        exit(1);
+    }
     glAttachShader(shaderProgram, fragmentShader);
 
     glLinkProgram(shaderProgram);
@@ -136,7 +132,47 @@ void Cleanup() {
     ReleaseDC(hWnd, hDC);
 }
 
-int main() {
+int main(int argc, char** argv) {
+    char exePath[256];
+    strcpy(exePath, argv[0]);
+    char* lastSlash = strrchr(exePath, '\\');
+    lastSlash[1] = 0;
+    char vertexShaderPath[256];
+    char fragmentShaderPath[256];
+    strcpy(vertexShaderPath, exePath);
+    strcat(vertexShaderPath, "vertex.glsl");
+    strcpy(fragmentShaderPath, exePath);
+    strcat(fragmentShaderPath, "frag.glsl");
+    FILE *fp = 0;
+    // Load vertex shader
+    fp = fopen(vertexShaderPath, "rb");
+    if(fp == NULL) {
+        printf("Failed to open vertex shader file at %s\n", vertexShaderPath);
+        return 1;
+    }
+    fseek(fp, 0, SEEK_END);
+    UINT64 vertex_source_size = ftell(fp) + 1;
+    fseek(fp, 0, SEEK_SET);
+    vertexShaderSource = (char*)malloc(vertex_source_size);
+    memset(vertexShaderSource, 0, vertex_source_size);
+    fread(vertexShaderSource, 1, vertex_source_size, fp);
+    fclose(fp);
+    printf("Vertex shader source:\n%s\n############\n", vertexShaderSource);
+    // Load fragment shader
+    fp = fopen(fragmentShaderPath, "rb");
+    if(fp == NULL) {
+        printf("Failed to open fragment shader file at %s\n", fragmentShaderPath);
+        return 1;
+    }
+    fseek(fp, 0, SEEK_END);
+    UINT64 fragment_source_size = ftell(fp) + 1;
+    fseek(fp, 0, SEEK_SET);
+    fragmentShaderSource = (char*)malloc(fragment_source_size);
+    memset(fragmentShaderSource, 0, fragment_source_size);
+    fread(fragmentShaderSource, 1, fragment_source_size, fp);
+    fclose(fp);
+    printf("Fragment shader source:\n%s\n############\n", fragmentShaderSource);
+
     WNDCLASS wc = { 0 };
     wc.style = CS_OWNDC;
     wc.lpfnWndProc = WndProc;

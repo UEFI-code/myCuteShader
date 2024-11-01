@@ -6,3 +6,5 @@
 *.recipe
 *.obj
 *.iobj
+*.idb
+*.ilk
