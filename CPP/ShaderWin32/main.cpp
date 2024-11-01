@@ -121,19 +121,13 @@ void InitOpenGL(HWND hwnd) {
 void RenderScene() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
-
-    glUseProgram(shaderProgram);
-    glUniform1f(timeLocation, time);
-
     glBegin(GL_QUADS);
     glVertex2f(-0.5f, -0.5f);
     glVertex2f(0.5f, -0.5f);
     glVertex2f(0.5f, 0.5f);
     glVertex2f(-0.5f, 0.5f);
     glEnd();
-
     SwapBuffers(hDC);
-    time += 0.01f;
 }
 
 void Cleanup() {
@@ -142,7 +136,7 @@ void Cleanup() {
     ReleaseDC(hWnd, hDC);
 }
 
-int WINAPI main() {
+int main() {
     WNDCLASS wc = { 0 };
     wc.style = CS_OWNDC;
     wc.lpfnWndProc = WndProc;
@@ -167,6 +161,8 @@ int WINAPI main() {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         } else {
+            time += 0.001f;
+            glUniform1f(timeLocation, time);
             RenderScene();
         }
     }
